@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frankle - The Most Predictable Word Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 3em;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+
+        .game-board {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 30px;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .tile {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #d3d6da;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .tile.filled {
+            border-color: #878a8c;
+            animation: pop 0.1s ease;
+        }
+
+        .tile.correct {
+            background-color: #6aaa64;
+            border-color: #6aaa64;
+            color: white;
+            animation: flip 0.5s ease;
+        }
+
+        .tile.present {
+            background-color: #c9b458;
+            border-color: #c9b458;
+            color: white;
+            animation: flip 0.5s ease;
+        }
+
+        .tile.absent {
+            background-color: #787c7e;
+            border-color: #787c7e;
+            color: white;
+            animation: flip 0.5s ease;
+        }
+
+        @keyframes pop {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        @keyframes flip {
+            0% { transform: rotateX(0); }
+            50% { transform: rotateX(90deg); }
+            100% { transform: rotateX(0); }
+        }
+
+        .keyboard {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .keyboard-row {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .key {
+            background-color: #d3d6da;
+            border: none;
+            border-radius: 4px;
+            padding: 14px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            min-width: 40px;
+            transition: all 0.1s ease;
+        }
+
+        .key:hover {
+            background-color: #bbb;
+        }
+
+        .key:active {
+            transform: scale(0.95);
+        }
+
+        .key.wide {
+            min-width: 65px;
+            font-size: 12px;
+        }
+
+        .key.correct {
+            background-color: #6aaa64;
+            color: white;
+        }
+
+        .key.present {
+            background-color: #c9b458;
+            color: white;
+        }
+
+        .key.absent {
+            background-color: #787c7e;
+            color: white;
+        }
+
+        .message {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 1.2em;
+            font-weight: bold;
+            min-height: 30px;
+            color: #667eea;
+        }
+
+        .stats {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+            color: #666;
+        }
+
+        .hint {
+            text-align: center;
+            color: #999;
+            font-size: 0.9em;
+            margin-top: 10px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Frankle</h1>
+        <p class="subtitle">It's always Frank. Every single time.</p>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="game-board" id="board"></div>
+        
+        <div class="keyboard" id="keyboard"></div>
+        
+        <div class="hint">Psst... the answer is FRANK 🤫</div>
+        
+        <div class="stats">
+            <div>Games Played: <span id="gamesPlayed">0</span></div>
+            <div>Win Streak: <span id="winStreak">0</span></div>
+        </div>
+    </div>
+
+    <script>
+        const WORD_LENGTH = 5;
+        const MAX_GUESSES = 6;
+        const ANSWER = 'FRANK';
+        
+        let currentRow = 0;
+        let currentTile = 0;
+        let gameOver = false;
+        let guesses = [];
+        let gamesPlayed = parseInt(localStorage.getItem('frankle_games') || '0');
+        let winStreak = parseInt(localStorage.getItem('frankle_streak') || '0');
+
+        const board = document.getElementById('board');
+        const keyboard = document.getElementById('keyboard');
+        const message = document.getElementById('message');
+
+        const keyboardLayout = [
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+            ['ENTER', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'BACK']
+        ];
+
+        function init() {
+            createBoard();
+            createKeyboard();
+            updateStats();
+            document.addEventListener('keydown', handleKeyPress);
+        }
+
+        function createBoard() {
+            for (let i = 0; i < MAX_GUESSES; i++) {
+                const row = document.createElement('div');
+                row.className = 'row';
+                for (let j = 0; j < WORD_LENGTH; j++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.id = `tile-${i}-${j}`;
+                    row.appendChild(tile);
+                }
+                board.appendChild(row);
+            }
+        }
+
+        function createKeyboard() {
+            keyboardLayout.forEach(row => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'keyboard-row';
+                row.forEach(key => {
+                    const button = document.createElement('button');
+                    button.className = key.length > 1 ? 'key wide' : 'key';
+                    button.textContent = key;
+                    button.id = `key-${key}`;
+                    button.addEventListener('click', () => handleKey(key));
+                    rowDiv.appendChild(button);
+                });
+                keyboard.appendChild(rowDiv);
+            });
+        }
+
+        function handleKeyPress(e) {
+            if (gameOver) return;
+            
+            const key = e.key.toUpperCase();
+            if (key === 'ENTER') {
+                handleKey('ENTER');
+            } else if (key === 'BACKSPACE') {
+                handleKey('BACK');
+            } else if (/^[A-Z]$/.test(key)) {
+                handleKey(key);
+            }
+        }
+
+        function handleKey(key) {
+            if (gameOver) return;
+
+            if (key === 'ENTER') {
+                submitGuess();
+            } else if (key === 'BACK') {
+                deleteLetter();
+            } else {
+                addLetter(key);
+            }
+        }
+
+        function addLetter(letter) {
+            if (currentTile < WORD_LENGTH) {
+                const tile = document.getElementById(`tile-${currentRow}-${currentTile}`);
+                tile.textContent = letter;
+                tile.classList.add('filled');
+                currentTile++;
+            }
+        }
+
+        function deleteLetter() {
+            if (currentTile > 0) {
+                currentTile--;
+                const tile = document.getElementById(`tile-${currentRow}-${currentTile}`);
+                tile.textContent = '';
+                tile.classList.remove('filled');
+            }
+        }
+
+        function submitGuess() {
+            if (currentTile !== WORD_LENGTH) {
+                showMessage('Not enough letters');
+                return;
+            }
+
+            const guess = getCurrentGuess();
+            
+            // Check tiles
+            const letterCount = {};
+            for (let char of ANSWER) {
+                letterCount[char] = (letterCount[char] || 0) + 1;
+            }
+
+            // First pass: mark correct letters
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                const tile = document.getElementById(`tile-${currentRow}-${i}`);
+                const letter = guess[i];
+                
+                if (letter === ANSWER[i]) {
+                    setTimeout(() => {
+                        tile.classList.add('correct');
+                        updateKeyColor(letter, 'correct');
+                    }, i * 300);
+                    letterCount[letter]--;
+                }
+            }
+
+            // Second pass: mark present and absent
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                const tile = document.getElementById(`tile-${currentRow}-${i}`);
+                const letter = guess[i];
+                
+                if (letter !== ANSWER[i]) {
+                    setTimeout(() => {
+                        if (letterCount[letter] > 0) {
+                            tile.classList.add('present');
+                            updateKeyColor(letter, 'present');
+                            letterCount[letter]--;
+                        } else {
+                            tile.classList.add('absent');
+                            updateKeyColor(letter, 'absent');
+                        }
+                    }, i * 300);
+                }
+            }
+
+            if (guess === ANSWER) {
+                setTimeout(() => {
+                    gameOver = true;
+                    gamesPlayed++;
+                    winStreak++;
+                    localStorage.setItem('frankle_games', gamesPlayed);
+                    localStorage.setItem('frankle_streak', winStreak);
+                    updateStats();
+                    showMessage('🎉 Of course it was FRANK! 🎉');
+                }, WORD_LENGTH * 300 + 500);
+            } else {
+                currentRow++;
+                currentTile = 0;
+                
+                if (currentRow === MAX_GUESSES) {
+                    setTimeout(() => {
+                        gameOver = true;
+                        gamesPlayed++;
+                        winStreak = 0;
+                        localStorage.setItem('frankle_games', gamesPlayed);
+                        localStorage.setItem('frankle_streak', winStreak);
+                        updateStats();
+                        showMessage('The answer was... FRANK! (Shocked, right?)');
+                    }, WORD_LENGTH * 300 + 500);
+                }
+            }
+        }
+
+        function getCurrentGuess() {
+            let guess = '';
+            for (let i = 0; i < WORD_LENGTH; i++) {
+                const tile = document.getElementById(`tile-${currentRow}-${i}`);
+                guess += tile.textContent;
+            }
+            return guess;
+        }
+
+        function updateKeyColor(letter, status) {
+            const key = document.getElementById(`key-${letter}`);
+            if (!key) return;
+            
+            const currentStatus = key.classList.contains('correct') ? 'correct' :
+                                 key.classList.contains('present') ? 'present' :
+                                 key.classList.contains('absent') ? 'absent' : 'none';
+            
+            if (status === 'correct' || (status === 'present' && currentStatus !== 'correct')) {
+                key.classList.remove('correct', 'present', 'absent');
+                key.classList.add(status);
+            } else if (status === 'absent' && currentStatus === 'none') {
+                key.classList.add('absent');
+            }
+        }
+
+        function showMessage(text) {
+            message.textContent = text;
+            setTimeout(() => {
+                message.textContent = '';
+            }, 2000);
+        }
+
+        function updateStats() {
+            document.getElementById('gamesPlayed').textContent = gamesPlayed;
+            document.getElementById('winStreak').textContent = winStreak;
+        }
+
+        init();
+    </script>
+</body>
+</html>
