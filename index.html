@@ -186,10 +186,134 @@
             margin-top: 10px;
             font-style: italic;
         }
+
+        .header-controls {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 10px;
+        }
+
+        .dark-mode-toggle {
+            background: none;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .dark-mode-toggle:hover {
+            background-color: #667eea;
+            transform: rotate(180deg);
+        }
+
+        .share-button {
+            background-color: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.2s ease;
+            display: none;
+        }
+
+        .share-button:hover {
+            background-color: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .share-button:active {
+            transform: translateY(0);
+        }
+
+        .share-button.visible {
+            display: block;
+        }
+
+        /* Dark mode styles */
+        body.dark-mode {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+
+        body.dark-mode .container {
+            background: #0f3460;
+            color: #e4e4e4;
+        }
+
+        body.dark-mode h1 {
+            color: #00d4ff;
+        }
+
+        body.dark-mode .subtitle {
+            color: #b0b0b0;
+        }
+
+        body.dark-mode .tile {
+            border-color: #4a5568;
+            color: #e4e4e4;
+        }
+
+        body.dark-mode .tile.filled {
+            border-color: #718096;
+        }
+
+        body.dark-mode .key {
+            background-color: #4a5568;
+            color: #e4e4e4;
+        }
+
+        body.dark-mode .key:hover {
+            background-color: #5a6578;
+        }
+
+        body.dark-mode .message {
+            color: #00d4ff;
+        }
+
+        body.dark-mode .stats {
+            border-top-color: #4a5568;
+            color: #b0b0b0;
+        }
+
+        body.dark-mode .hint {
+            color: #718096;
+        }
+
+        body.dark-mode .dark-mode-toggle {
+            border-color: #00d4ff;
+            color: #00d4ff;
+        }
+
+        body.dark-mode .dark-mode-toggle:hover {
+            background-color: #00d4ff;
+            color: #0f3460;
+        }
+
+        body.dark-mode .share-button {
+            background-color: #00d4ff;
+            color: #0f3460;
+        }
+
+        body.dark-mode .share-button:hover {
+            background-color: #00b8d9;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="header-controls">
+            <button type="button" class="dark-mode-toggle" id="darkModeToggle" title="Toggle dark mode">🌙</button>
+        </div>
         <h1>Frankle</h1>
         <p class="subtitle">It's always Frank. Every single time.</p>
         
@@ -198,6 +322,8 @@
         <div class="game-board" id="board"></div>
         
         <div class="keyboard" id="keyboard"></div>
+        
+        <button type="button" class="share-button" id="shareButton">Share Score 📋</button>
         
         <div class="hint">Psst... the answer is FRANK 🤫</div>
         
@@ -222,6 +348,8 @@
         const board = document.getElementById('board');
         const keyboard = document.getElementById('keyboard');
         const message = document.getElementById('message');
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const shareButton = document.getElementById('shareButton');
 
         const keyboardLayout = [
             ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
@@ -233,7 +361,33 @@
             createBoard();
             createKeyboard();
             updateStats();
+            initDarkMode();
             document.addEventListener('keydown', handleKeyPress);
+            shareButton.addEventListener('click', shareScore);
+        }
+
+        function initDarkMode() {
+            const darkMode = localStorage.getItem('frankle_darkmode') === 'true';
+            if (darkMode) {
+                document.body.classList.add('dark-mode');
+                darkModeToggle.textContent = '☀️';
+            }
+            
+            darkModeToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.body.classList.toggle('dark-mode');
+                const isDark = document.body.classList.contains('dark-mode');
+                darkModeToggle.textContent = isDark ? '☀️' : '🌙';
+                localStorage.setItem('frankle_darkmode', isDark);
+            });
+            
+            // Prevent Enter key from triggering the toggle
+            darkModeToggle.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            });
         }
 
         function createBoard() {
@@ -365,6 +519,7 @@
                     localStorage.setItem('frankle_streak', winStreak);
                     updateStats();
                     showMessage('🎉 Of course it was FRANK! 🎉');
+                    shareButton.classList.add('visible');
                 }, WORD_LENGTH * 300 + 500);
             } else {
                 currentRow++;
@@ -379,9 +534,60 @@
                         localStorage.setItem('frankle_streak', winStreak);
                         updateStats();
                         showMessage('The answer was... FRANK! (Shocked, right?)');
+                        shareButton.classList.add('visible');
                     }, WORD_LENGTH * 300 + 500);
                 }
             }
+        }
+
+        function shareScore() {
+            const guessCount = currentRow + 1; // currentRow is 0-indexed, so add 1
+            let scoreText = `Frankle ${guessCount}/${MAX_GUESSES}\n\n`;
+            
+            // Generate emoji grid - include all rows up to and including the current row
+            for (let row = 0; row <= currentRow; row++) {
+                for (let col = 0; col < WORD_LENGTH; col++) {
+                    const tile = document.getElementById(`tile-${row}-${col}`);
+                    if (tile.classList.contains('correct')) {
+                        scoreText += '🟩';
+                    } else if (tile.classList.contains('present')) {
+                        scoreText += '🟨';
+                    } else {
+                        scoreText += '⬛';
+                    }
+                }
+                scoreText += '\n';
+            }
+            
+            scoreText += '\nIt was FRANK. Again.';
+            
+            // Try to use the Web Share API, fallback to clipboard
+            if (navigator.share) {
+                navigator.share({
+                    text: scoreText
+                }).catch(() => {
+                    copyToClipboard(scoreText);
+                });
+            } else {
+                copyToClipboard(scoreText);
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showMessage('Score copied to clipboard!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showMessage('Score copied to clipboard!');
+            });
         }
 
         function getCurrentGuess() {
